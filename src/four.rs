@@ -1,5 +1,11 @@
 use std::time::{Duration, Instant};
 
+pub fn run_all(pin_nums: &Vec<[&str; 4]>, num_steps: u32, steps_per_sec: u32) {
+	setup_gpios(pin_nums);
+	go_n_steps(num_steps, pin_nums, find_sleep_time(steps_per_sec));
+	takedown_gpios(pin_nums);
+}
+
 pub fn do_all<F>(pin_nums: &Vec<[&str; 4]>, todo: F) 
 	where F : Fn(&str) {
         for pins in pin_nums {
