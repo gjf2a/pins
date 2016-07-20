@@ -1,5 +1,7 @@
 use std::fs::File;
 use std::io::Write;
+use std::io::Read;
+use std::path::Path;
 
 pub fn write_control(prefix: &str, filename: &str, value: &str) {
 	let full_path = format!("{}/{}", prefix, filename);
@@ -26,4 +28,13 @@ pub fn takedown_gpio(gpio_num: &str) {
 pub fn gpio_cmd(gpio_num: &str, gpio_cmd: &str, gpio_value: &str) {
 	let gpio_path = format!("/sys/class/gpio/gpio{}", gpio_num);
 	write_control(&gpio_path, gpio_cmd, gpio_value)
+}
+
+pub fn read_adc_voltage(ain_num: u32) -> u32 {
+	let adc_filename = format!("/sys/bus/iio/devices/iio:device{}", ain_num);
+	let adc_path = Path::new(&adc_filename);
+	let mut adc_file = File::open(&adc_path).ok().unwrap();
+	let mut content = String::new();
+	adc_file.read_to_string(&mut content).unwrap();
+	content.trim().parse::<u32>().ok().unwrap()
 }
