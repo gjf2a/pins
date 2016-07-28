@@ -69,21 +69,21 @@ fn process_line(config: io::Result<RobotConfig>, line: io::Result<String>) -> io
 fn process_contents(keyword: &str, contents: &mut SplitWhitespace, config: io::Result<RobotConfig>) -> io::Result<RobotConfig> {
 	match config {
 		Ok(config) => {
-			if keyword == "motor" {
-				match array_from(contents) {
-					Ok(contents) => Ok(config.add_motor(contents)),
-					Err(err) => Err(err),
-				}
-			} else if keyword == "ir" {
-				process_single_num(contents.next(), "Pin", |v| config.add_ir(v))
-			} else if keyword == "hz" {
-				process_single_num(contents.next(), "Cycles per second", |v| config.set_hz(v))
-			} else if keyword == "max" {
-				process_single_num(contents.next(), "Maximum steps", |v| config.set_max(v))
-			} else {
-				make_error_msg(&format!("Unrecognized keyword: {}", keyword))
+			match keyword {
+				"motor" => process_motor_spec(contents, config),
+				"ir" => process_single_num(contents.next(), "Pin", |v| config.add_ir(v)),
+				"hz" => process_single_num(contents.next(), "Cycles per second", |v| config.set_hz(v)),
+				"max" => process_single_num(contents.next(), "Maximum steps", |v| config.set_max(v)),
+				_ => make_error_msg(&format!("Unrecognized keyword: {}", keyword)),
 			}
 		},
+		Err(err) => Err(err),
+	}
+}
+
+fn process_motor_spec(contents: &mut SplitWhitespace, config: RobotConfig) -> io::Result<RobotConfig> {
+	match array_from(contents) {
+		Ok(contents) => Ok(config.add_motor(contents)),
 		Err(err) => Err(err),
 	}
 }
