@@ -15,22 +15,17 @@ pub struct RobotConfig {
 }
 
 pub fn parse_file(filename: &str) -> io::Result<RobotConfig> {
-	let file_path = Path::new(&filename);
-	let reader = File::open(&file_path).map(|f| BufReader::new(f));
+	process_lines(File::open(&Path::new(&filename)).map(|f| BufReader::new(f)))
+}
 
+fn process_lines(reader: io::Result<BufReader<File>>) -> io::Result<RobotConfig> {
 	match reader {
-		Ok(r) => {
-			let mut result = Ok(RobotConfig {motors: Vec::new(), ir_sensors: Vec::new(), steps_per_sec: 100, max_steps: None});
-			for line in r.lines() {
-				result = process_line(line, result);
-			}
-			result
-		},
+		Ok(r) => r.lines().fold(Ok(RobotConfig {motors: Vec::new(), ir_sensors: Vec::new(), steps_per_sec: 100, max_steps: None}), process_line),
 		Err(r) => Err(r),
 	}
 }
 
-fn process_line(line: io::Result<String>, config: io::Result<RobotConfig>) -> io::Result<RobotConfig> {
+fn process_line(config: io::Result<RobotConfig>, line: io::Result<String>) -> io::Result<RobotConfig> {
 	match line {
 		Ok(line) => {
 			let mut parts = line.split_whitespace();
