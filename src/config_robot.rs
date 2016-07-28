@@ -14,14 +14,42 @@ pub struct RobotConfig {
 	max_steps: Option<u32>,
 }
 
-pub fn parse_file(filename: &str) -> io::Result<RobotConfig> {
-	process_lines(File::open(&Path::new(&filename)).map(|f| BufReader::new(f)))
+impl RobotConfig {
+	pub fn add_motor(self, contents: [String; 4]) -> RobotConfig {
+		let mut updated = copy(self.motors);
+		updated.push(contents);
+		RobotConfig {motors: updated, ir_sensors: self.ir_sensors, steps_per_sec: self.steps_per_sec, max_steps: self.max_steps}
+	}
+
+	pub fn add_ir(self, ir: u32) -> RobotConfig {
+		let mut updated = copy(self.ir_sensors);
+		updated.push(ir);
+		RobotConfig {motors: self.motors, ir_sensors: updated, steps_per_sec: self.steps_per_sec, max_steps: self.max_steps}
+	}
+
+	pub fn set_hz(self, hz: u32) -> RobotConfig {
+		RobotConfig {motors: self.motors, ir_sensors: self.ir_sensors, steps_per_sec: hz, max_steps: self.max_steps}
+	}
+
+	pub fn set_max(self, max: u32) -> RobotConfig {
+		RobotConfig {motors: self.motors, ir_sensors: self.ir_sensors, steps_per_sec: self.steps_per_sec, max_steps: Some(max)}
+	}
 }
 
-fn process_lines(reader: io::Result<BufReader<File>>) -> io::Result<RobotConfig> {
-	match reader {
-		Ok(r) => r.lines().fold(Ok(RobotConfig {motors: Vec::new(), ir_sensors: Vec::new(), steps_per_sec: 100, max_steps: None}), process_line),
-		Err(r) => Err(r),
+pub fn parse_file(filename: &str) -> io::Result<RobotConfig> {
+	File::open(&Path::new(&filename)).map(|f| BufReader::new(f)).process_lines()
+}
+
+trait LineProcessor {
+	fn process_lines(self) -> io::Result<RobotConfig>;
+}
+
+impl LineProcessor for io::Result<BufReader<File>> {
+	fn process_lines(self) -> io::Result<RobotConfig> {
+		match self {
+			Ok(r) => r.lines().fold(Ok(RobotConfig {motors: Vec::new(), ir_sensors: Vec::new(), steps_per_sec: 100, max_steps: None}), process_line),
+			Err(r) => Err(r),
+		}
 	}
 }
 
@@ -29,8 +57,7 @@ fn process_line(config: io::Result<RobotConfig>, line: io::Result<String>) -> io
 	match line {
 		Ok(line) => {
 			let mut parts = line.split_whitespace();
-			let keyword = parts.next();
-			match keyword {
+			match parts.next() {
 				Some(keyword) => process_contents(keyword, &mut parts, Ok(RobotConfig {motors: Vec::new(), ir_sensors: Vec::new(), steps_per_sec: 100, max_steps: None})),
 				None => config,
 			}
@@ -44,47 +71,15 @@ fn process_contents(keyword: &str, contents: &mut SplitWhitespace, config: io::R
 		Ok(config) => {
 			if keyword == "motor" {
 				match array_from(contents) {
-					Ok(contents) => {
-						let mut updated = copy(config.motors);
-						updated.push(contents);
-						Ok(RobotConfig {motors: updated, ir_sensors: config.ir_sensors, steps_per_sec: config.steps_per_sec, max_steps: config.max_steps})
-					},
+					Ok(contents) => Ok(config.add_motor(contents)),
 					Err(err) => Err(err),
 				}
 			} else if keyword == "ir" {
-				match contents.next() {
-					Some(ir_str) => {
-						let mut updated = copy(config.ir_sensors);
-						match ir_str.parse::<u32>() {
-							Ok(value) => {
-								updated.push(value);
-								Ok(RobotConfig {motors: config.motors, ir_sensors: updated, steps_per_sec: config.steps_per_sec, max_steps: config.max_steps})
-							},
-							Err(err) => make_error_msg(err.description()),
-						}
-					},
-					None => make_error_msg("No pin specified"),
-				}
+				process_single_num(contents.next(), "Pin", |v| config.add_ir(v))
 			} else if keyword == "hz" {
-				match contents.next() {
-					Some(hz_str) => {
-						match hz_str.parse::<u32>() {
-							Ok(value) => Ok(RobotConfig {motors: config.motors, ir_sensors: config.ir_sensors, steps_per_sec: value, max_steps: config.max_steps}),
-							Err(err) => make_error_msg(err.description()),
-						}
-					},
-					None => make_error_msg("Cycles per second not specified"),
-				}
+				process_single_num(contents.next(), "Cycles per second", |v| config.set_hz(v))
 			} else if keyword == "max" {
-				match contents.next() {
-					Some(max_str) => {
-						match max_str.parse::<u32>() {
-							Ok(value) => Ok(RobotConfig {motors: config.motors, ir_sensors: config.ir_sensors, steps_per_sec: config.steps_per_sec, max_steps: Some(value)}),
-							Err(err) => make_error_msg(err.description()),
-						}
-					},
-					None => make_error_msg("Maximum steps not specified"),
-				}
+				process_single_num(contents.next(), "Maximum steps", |v| config.set_max(v))
 			} else {
 				make_error_msg(&format!("Unrecognized keyword: {}", keyword))
 			}
@@ -93,11 +88,24 @@ fn process_contents(keyword: &str, contents: &mut SplitWhitespace, config: io::R
 	}
 }
 
+fn process_single_num<F>(input: Option<&str>, failure: &'static str, generator: F) -> io::Result<RobotConfig>
+	where F: FnOnce(u32) -> RobotConfig {
+	match input {
+		Some(input) => {
+			match input.parse::<u32>() {
+				Ok(value) => Ok(generator(value)),
+				Err(err) => make_error_msg(err.description()),
+			}
+		},
+		None => make_error_msg(&format!("{} not specified", failure)),
+	}
+}
+
 fn array_from(contents: &mut SplitWhitespace) -> io::Result<[String; 4]> {
 	let contents: Vec<&str> = contents.collect();
 	if contents.len() == 4 {
 		Ok([String::from(contents[0]), String::from(contents[1]),
-		String::from(contents[2]), String::from(contents[3])])
+				String::from(contents[2]), String::from(contents[3])])
 	} else {
 		make_error_msg(&format!("4 pins expected; received {}", contents.len()))
 	}
