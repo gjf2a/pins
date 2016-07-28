@@ -7,6 +7,10 @@ use std::io::ErrorKind;
 use std::fs::File;
 use std::str::SplitWhitespace;
 
+pub fn parse_file(filename: &str) -> io::Result<RobotConfig> {
+	File::open(&Path::new(&filename)).map(|f| BufReader::new(f)).process_lines()
+}
+
 pub struct RobotConfig {
 	motors: Vec<[String; 4]>,
 	ir_sensors: Vec<u32>,
@@ -34,10 +38,6 @@ impl RobotConfig {
 	pub fn set_max(self, max: u32) -> RobotConfig {
 		RobotConfig {motors: self.motors, ir_sensors: self.ir_sensors, steps_per_sec: self.steps_per_sec, max_steps: Some(max)}
 	}
-}
-
-pub fn parse_file(filename: &str) -> io::Result<RobotConfig> {
-	File::open(&Path::new(&filename)).map(|f| BufReader::new(f)).process_lines()
 }
 
 trait LineProcessor {
