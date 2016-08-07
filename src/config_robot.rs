@@ -32,17 +32,6 @@ impl RobotConfig {
 		}
 	}
 
-	pub fn motor_ir_loop(&self, max_forward_voltage: u32) {
-		match self.max_steps {
-			Some(max) => {
-				four::setup_gpios(&self.motors);
-
-				four::takedown_gpios(&self.motors);
-			},
-			None => panic!("Indefinite run not implemented"),
-		}
-	}
-
 	pub fn add_motor(&mut self, contents: [String; 4]) {
 		self.motors.push(contents);
 	}
@@ -78,15 +67,20 @@ impl LineProcessor for io::Result<BufReader<File>> {
 }
 
 fn process_line(config: &mut RobotConfig, line: io::Result<String>, result: io::Result<()>) -> io::Result<()> {
-	match line {
-		Ok(line) => {
-			let mut parts = line.split_whitespace();
-			match parts.next() {
-				Some(keyword) => process_contents(keyword, &mut parts, config),
-				None => Ok(()),
+	match result {
+		Ok(()) => {
+			match line {
+				Ok(line) => {
+					let mut parts = line.split_whitespace();
+					match parts.next() {
+						Some(keyword) => process_contents(keyword, &mut parts, config),
+						None => Ok(()),
+					}
+				},
+				Err(line) => Err(line),
 			}
 		},
-		Err(line) => Err(line),
+		Err(err) => Err(err),
 	}
 }
 

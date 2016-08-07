@@ -16,10 +16,12 @@ pub fn do_all<F>(pin_nums: &Vec<[String; 4]>, todo: F)
 }
 
 pub fn setup_gpios(pin_nums: &Vec<[String; 4]>) {
-	do_all(pin_nums, |pin: &str| {
-		super::pins::setup_gpio(pin);
-    super::pins::gpio_cmd(pin, "direction", "out");
-	})
+	do_all(pin_nums, setup_gpio)
+}
+
+pub fn setup_gpio(pin: &str) {
+	super::pins::setup_gpio(pin);
+	super::pins::gpio_cmd(pin, "direction", "out");
 }
 
 pub fn takedown_gpios(pin_nums: &Vec<[String; 4]>) {
