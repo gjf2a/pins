@@ -18,16 +18,16 @@ pub fn write_control(prefix: &str, filename: &str, value: &str) {
 }
 
 pub fn setup_gpio(gpio_num: &str) {
-	write_control("/sys/class/gpio", "export", gpio_num)
+	write_control("/sys/class/gpio", "export", &gpio_num);
 }
 
 pub fn takedown_gpio(gpio_num: &str) {
-	write_control("/sys/class/gpio", "unexport", gpio_num)
+	write_control("/sys/class/gpio", "unexport", &gpio_num);
 }
 
 pub fn gpio_cmd(gpio_num: &str, gpio_cmd: &str, gpio_value: &str) {
 	let gpio_path = format!("/sys/class/gpio/gpio{}", gpio_num);
-	write_control(&gpio_path, gpio_cmd, gpio_value)
+	write_control(&gpio_path, gpio_cmd, gpio_value);
 }
 
 pub fn read_adc_voltage(ain_num: u32) -> u32 {
