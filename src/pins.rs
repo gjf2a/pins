@@ -2,6 +2,9 @@ use std::fs::File;
 use std::io::Write;
 use std::io::Read;
 use std::path::Path;
+use std::io;
+use std::error::Error;
+use config_robot;
 
 pub fn write_control(prefix: &str, filename: &str, value: &str) {
 	let full_path = format!("{}/{}", prefix, filename);
@@ -30,11 +33,21 @@ pub fn gpio_cmd(gpio_num: &str, gpio_cmd: &str, gpio_value: &str) {
 	write_control(&gpio_path, gpio_cmd, gpio_value);
 }
 
-pub fn read_adc_voltage(ain_num: u32) -> u32 {
-	let adc_filename = format!("/sys/bus/iio/devices/iio:device{}", ain_num);
-	let adc_path = Path::new(&adc_filename);
-	let mut adc_file = File::open(&adc_path).ok().unwrap();
-	let mut content = String::new();
-	adc_file.read_to_string(&mut content).unwrap();
-	content.trim().parse::<u32>().ok().unwrap()
+pub fn read_adc_voltage(ain_num: u32) -> io::Result<u32> {
+  let adc_filename = format!("/sys/bus/iio/devices/iio:device{}", ain_num);
+  match File::open(&Path::new(&adc_filename)) {
+    Ok(mut adc_file) => {
+      let mut content = String::new();
+      match adc_file.read_to_string(&mut content) {
+        Ok(_) => {
+          match content.trim().parse::<u32>() {
+            Ok(parsed) => Ok(parsed),
+            Err(err) => config_robot::make_error_msg(err.description()),
+          }
+        },
+        Err(err) => Err(err),
+      }
+    },
+    Err(err) => Err(err)
+  }
 }
